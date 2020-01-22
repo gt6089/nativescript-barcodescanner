@@ -219,6 +219,8 @@ export class BarcodeScanner {
 
   public scan(arg: ScanOptions): Promise<ScanResult> {
     return new Promise((resolve, reject) => {
+      console.log("scan()");
+      console.log("this._scanner before QrCodeReaderViewController is instantiated", this._scanner);
       try {
         // only need for denied permission as conveniently, this method will auto-request permission upon scan
         if (this._hasDeniedCameraPermission()) {
@@ -237,6 +239,7 @@ export class BarcodeScanner {
         let isContinuous = typeof arg.continuousScanCallback === "function";
 
         this._closeCallback = arg.closeCallback;
+        console.log("this._closeCallback", this._closeCallback);
 
         const types = getBarcodeTypes(arg.formats);
 
@@ -250,8 +253,11 @@ export class BarcodeScanner {
         let flip = arg.showFlipCameraButton;
         let startScanningAtLoad = true;
 
-        this._scanner = QRCodeReaderViewController.readerWithCancelButtonTitleCodeReaderStartScanningAtLoadShowSwitchCameraButtonShowTorchButtonCancelButtonBackgroundColor(
-            closeButtonLabel, reader, startScanningAtLoad, flip, torch, arg.cancelLabelBackgroundColor);
+        if (!this._scanner) {
+          console.log("!this._scanner");
+          this._scanner = QRCodeReaderViewController.readerWithCancelButtonTitleCodeReaderStartScanningAtLoadShowSwitchCameraButtonShowTorchButtonCancelButtonBackgroundColor(
+              closeButtonLabel, reader, startScanningAtLoad, flip, torch, arg.cancelLabelBackgroundColor);
+        }
 
         this._scanner.modalPresentationStyle = arg.fullScreen ? UIModalPresentationStyle.FullScreen : UIModalPresentationStyle.FormSheet;
 
@@ -267,6 +273,7 @@ export class BarcodeScanner {
               if (text === undefined) {
                 this._removeVolumeObserver();
                 this._closeCallback && this._closeCallback();
+                console.log("Scan cancelled");
                 reject("Scan aborted");
               } else {
 
@@ -300,8 +307,11 @@ export class BarcodeScanner {
           }
           this._device.unlockForConfiguration();
         }
-
+        console.log("this.isPresentingModally prior to setTimeout", this.isPresentingModally());
         setTimeout(() => {
+          console.log("timeout callback triggered");
+          console.log("arg.presentInRootViewController", arg.presentInRootViewController);
+          console.log("instance of scanner to be presented", this._scanner);
           this.getViewControllerToPresentFrom(arg.presentInRootViewController).presentViewControllerAnimatedCompletion(this._scanner, true, () => {
             if (arg.torchOn) {
               this._enableTorch();
@@ -328,7 +338,7 @@ export class BarcodeScanner {
         while (viewController.parentViewController) {
           viewController = viewController.parentViewController;
         }
-
+        console.log("isPresentingModally()", !!viewController.presentedViewController);
         return !!viewController.presentedViewController;
       }
     }
@@ -337,19 +347,24 @@ export class BarcodeScanner {
   }
 
   private close(): void {
+    console.log("close()");
     if (this._lastScanViewController) {
+      console.log("this._lastScanViewController", this._lastScanViewController);
       this._lastScanViewController.dismissViewControllerAnimatedCompletion(true, null);
       this._lastScanViewController = undefined;
+      console.log("setting this._lastScanViewController to undefined");
     } else {
-      this.getViewControllerToPresentFrom().dismissViewControllerAnimatedCompletion(true, null);
+      console.log("no lastScanViewController... getting view controller to present from");
+      this.getViewControllerToPresentFrom().dismissViewControllerAnimatedCompletion(true, function() { console.log("modal view controller dismissed"); });
     }
   }
 
   private getViewControllerToPresentFrom(presentInRootViewController?: boolean): UIViewController {
+    console.log("this.getViewControllerToPresentFrom()...");
     let frame = require("tns-core-modules/ui/frame");
     let viewController: UIViewController;
     let topMostFrame = frame.topmost();
-
+    console.log("topMostFrame", topMostFrame);
     if (topMostFrame && presentInRootViewController !== true) {
       viewController = topMostFrame.currentPage && topMostFrame.currentPage.ios;
 
@@ -367,8 +382,10 @@ export class BarcodeScanner {
     }
 
     if (!viewController) {
+      console.log("!viewController");
       viewController = UIApplication.sharedApplication.keyWindow.rootViewController;
     }
+    console.log("...view controller to present from", viewController);
 
     this._lastScanViewController = viewController;
     return viewController;
